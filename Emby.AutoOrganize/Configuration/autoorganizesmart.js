@@ -1,4 +1,4 @@
-﻿define(['loading', 'mainTabsManager', 'dialogHelper', 'listViewStyle', 'formDialogStyle', 'emby-input', 'emby-select', 'emby-textarea', 'emby-button', 'paper-icon-button-light', 'emby-scroller', 'emby-dialogclosebutton'], function (loading, mainTabsManager, dialogHelper) {
+﻿define(['loading', 'mainTabsManager', 'dialogHelper', 'listViewStyle', 'formDialogStyle', 'emby-input', 'emby-select', 'emby-textarea', 'emby-button', 'paper-icon-button-light', 'emby-scroller', 'emby-dialogclosebutton', 'emby-collapse'], function (loading, mainTabsManager, dialogHelper) {
     'use strict';
 
     function getSmartMatchInfos(apiClient, options) {
@@ -154,11 +154,12 @@
         html += '<div is="emby-scroller" data-horizontal="false" data-forcescrollbar="true" data-focusscroll="true" class="formDialogContent"><div class="scrollSlider">';
         html += '<form class="dialogContentInner dialog-content-centered padded-left padded-right">';
         html += '<div class="selectContainer"><select is="emby-select" class="selectSeries" required label="Series:"></select></div>';
-        html += '<div class="inputContainer"><textarea is="emby-textarea" class="txtMatchStrings" required rows="3" label="File names (one per line):"></textarea>';
+        html += '<div class="inputContainer"><label class="inputLabel" for="txtAbsoluteMatchStrings">File names (one per line):</label>';
+        html += '<textarea is="emby-textarea" id="txtAbsoluteMatchStrings" class="txtMatchStrings" required rows="3"></textarea>';
         html += '<div class="fieldDescription">The series name as parsed from the file, e.g. "[ASW] Anime" for "[ASW] Anime - 13 [1080p].mkv". Shown in the activity log after a failed run.</div></div>';
         html += '<h3>Ranges</h3>';
         html += '<div class="absoluteRanges"></div>';
-        html += '<button is="emby-button" type="button" class="btnAddRange"><i class="md-icon">add</i><span>Add range</span></button>';
+        html += '<button is="emby-button" type="button" class="raised btnAddRange"><i class="md-icon">add</i><span>Add range</span></button>';
         html += '<div class="fieldDescription">Example: Season 1 has 12 episodes \u2192 ranges "1 \u2192 Season 1, starts at 1" and "13 \u2192 Season 2, starts at 1", so file episode 13 becomes S02E01. Use "starts at 13" if the provider keeps counting in season 2.</div>';
         html += '<div class="formDialogFooter"><button is="emby-button" type="submit" class="raised button-submit block formDialogFooterItem"><span>Save</span></button></div>';
         html += '</form></div></div>';
@@ -311,7 +312,7 @@
 
             matchStringHtml += '</div>';
 
-            matchStringHtml += '<button type="button" is="emby-button" class="btnDeleteMatchEntry" style="padding: 0;" data-index="' + i + '" data-matchindex="' + matchStringIndex + '" title="Delete"><i class="md-icon">delete</i></button>';
+            matchStringHtml += '<button type="button" is="paper-icon-button-light" class="btnDeleteMatchEntry" data-index="' + i + '" data-matchindex="' + matchStringIndex + '" title="Delete"><i class="md-icon">delete</i></button>';
 
             matchStringHtml += '</div>';
             matchStringIndex++;
