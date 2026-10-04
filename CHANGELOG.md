@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-10-04
+
+### Added
+- Organize dialog previews the full target path and file name from the current TV settings
+
 ## [1.0.1] — 2026-10-04
 
 ### Fixed
