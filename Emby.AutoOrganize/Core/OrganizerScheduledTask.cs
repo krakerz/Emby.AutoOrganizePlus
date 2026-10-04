@@ -86,9 +86,10 @@ namespace Emby.AutoOrganizePlus.Core
             };
         }
 
+        // Always listed so it can be scheduled before organizing is enabled; Execute skips disabled types
         public bool IsHidden
         {
-            get { return !GetAutoOrganizeOptions().TvOptions.IsEnabled && !GetAutoOrganizeOptions().MovieOptions.IsEnabled; }
+            get { return false; }
         }
 
         public bool IsEnabled

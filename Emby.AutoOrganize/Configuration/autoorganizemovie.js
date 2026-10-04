@@ -56,7 +56,7 @@
 
     function onSubmit(view) {
 
-        ApiClient.getNamedConfiguration('autoorganize').then(function (config) {
+        ApiClient.getNamedConfiguration('autoorganizeplus').then(function (config) {
 
             var movieOptions = config.MovieOptions;
 
@@ -81,7 +81,7 @@
 
             movieOptions.CopyOriginalFile = view.querySelector('#copyOrMoveMovieFile').value;
 
-            ApiClient.updateNamedConfiguration('autoorganize', config).then(Dashboard.processServerConfigurationUpdateResult, Dashboard.processErrorResponse);
+            ApiClient.updateNamedConfiguration('autoorganizeplus', config).then(Dashboard.processServerConfigurationUpdateResult, Dashboard.processErrorResponse);
         });
 
         return false;
@@ -251,7 +251,7 @@
 
             mainTabsManager.setTabs(this, 2, getTabs);
 
-            ApiClient.getNamedConfiguration('autoorganize').then(function (config) {
+            ApiClient.getNamedConfiguration('autoorganizeplus').then(function (config) {
                 loadPage(view, config);
                 updateMoviePatternHelp();
                 updateMovieFolderPatternHelp();

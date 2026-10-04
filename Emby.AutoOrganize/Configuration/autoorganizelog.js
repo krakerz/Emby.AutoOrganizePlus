@@ -528,7 +528,7 @@
 
     AutoOrganizeView.prototype.getSettingsKey = function () {
 
-        return 'autoorganizelog';
+        return 'autoorganizepluslog';
     };
 
     AutoOrganizeView.prototype.supportsViewType = function (viewType) {

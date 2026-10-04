@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-10-04
+
+### Fixed
+- Settings pages save to Auto Organize+'s own settings instead of the stock plugin's
+- The "Organize new media files (Auto Organize+)" scheduled task is always listed, so it can be scheduled even with the stock plugin removed
+
 ## [1.0.0] — 2026-10-04
 
 ### Added

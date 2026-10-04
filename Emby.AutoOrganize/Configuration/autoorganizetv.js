@@ -74,7 +74,7 @@
 
     function onSubmit(view) {
 
-        ApiClient.getNamedConfiguration('autoorganize').then(function (config) {
+        ApiClient.getNamedConfiguration('autoorganizeplus').then(function (config) {
 
             var tvOptions = config.TvOptions;
 
@@ -103,7 +103,7 @@
 
             tvOptions.CopyOriginalFile = view.querySelector('#copyOrMoveFile').value;
 
-            ApiClient.updateNamedConfiguration('autoorganize', config).then(Dashboard.processServerConfigurationUpdateResult, Dashboard.processErrorResponse);
+            ApiClient.updateNamedConfiguration('autoorganizeplus', config).then(Dashboard.processServerConfigurationUpdateResult, Dashboard.processErrorResponse);
         });
 
         return false;
@@ -278,7 +278,7 @@
 
             mainTabsManager.setTabs(this, 1, getTabs);
 
-            ApiClient.getNamedConfiguration('autoorganize').then(function (config) {
+            ApiClient.getNamedConfiguration('autoorganizeplus').then(function (config) {
                 loadPage(view, config);
                 updateSeriesPatternHelp();
                 updateSeasonPatternHelp();
