@@ -7,6 +7,9 @@
     var currentNewItem;
     var existingMediasHtml;
     var mediasLocationsCount = 0;
+    var mediaPaths = {};
+    var tvOptions;
+    var currentItem;
 
     function onApiCommandCompleted(response) {
 
@@ -91,11 +94,17 @@
         ApiClient.getItems(null, {
             recursive: true,
             includeItemTypes: chosenType,
-            sortBy: 'SortName'
+            sortBy: 'SortName',
+            fields: 'Path'
 
         }).then(function (result) {
 
             loading.hide();
+
+            mediaPaths = {};
+            result.Items.forEach(function (s) {
+                mediaPaths[s.Id] = s.Path;
+            });
 
             existingMediasHtml = result.Items.map(function (s) {
 
@@ -141,6 +150,8 @@
 
                 context.querySelector('#selectMediaFolder').innerHTML = mediasFolderHtml;
 
+                updateTargetPreview(context);
+
             }, onApiFailure);
 
         }, onApiFailure);
@@ -167,7 +178,138 @@
 
         initAbsoluteRuleField(context, item);
 
+        tvOptions = null;
+        ApiClient.getNamedConfiguration('autoorganizeplus').then(function (config) {
+            tvOptions = config.TvOptions;
+            updateTargetPreview(context);
+        });
+
         populateMedias(context);
+    }
+
+    function replaceAll(value, find, replacement) {
+
+        return value.split(find).join(String(replacement));
+    }
+
+    function padNumber(value, width) {
+
+        var text = String(value);
+
+        while (text.length < width) {
+            text = '0' + text;
+        }
+
+        return text;
+    }
+
+    // Mirrors EpisodeFileOrganizer.GetSeriesDirectoryName
+    function getSeriesFolderName(seriesName, seriesYear) {
+
+        var fullName = seriesName;
+
+        if (seriesYear && fullName.slice(-6) !== '(' + seriesYear + ')') {
+            fullName += ' (' + seriesYear + ')';
+        }
+
+        var result = replaceAll(tvOptions.SeriesFolderPattern || '%fn', '%sn', seriesName);
+        result = replaceAll(result, '%s.n', seriesName.replace(/ /g, '.'));
+        result = replaceAll(result, '%s_n', seriesName.replace(/ /g, '_'));
+        result = replaceAll(result, '%fn', fullName);
+        result = replaceAll(result, '%sy', seriesYear || '');
+
+        return result.replace(/[. ]+$/, '');
+    }
+
+    // Mirrors EpisodeFileOrganizer.GetSeasonFolderPath
+    function getSeasonFolderName(season) {
+
+        if (season === 0) {
+            return tvOptions.SeasonZeroFolderName;
+        }
+
+        var result = replaceAll(tvOptions.SeasonFolderPattern, '%s', season);
+        result = replaceAll(result, '%0s', padNumber(season, 2));
+        return replaceAll(result, '%00s', padNumber(season, 3));
+    }
+
+    // Mirrors EpisodeFileOrganizer.SetEpisodeFileName, including its replacement order
+    function getEpisodeFileName(seriesName, season, episode, endingEpisode, originalFileName) {
+
+        var dot = originalFileName.lastIndexOf('.');
+        var extension = dot === -1 ? '' : originalFileName.slice(dot + 1);
+        var fileName = dot === -1 ? originalFileName : originalFileName.slice(0, dot);
+        var pattern = endingEpisode != null ? tvOptions.MultiEpisodeNamePattern : tvOptions.EpisodeNamePattern;
+
+        var result = replaceAll(pattern || '', '%sn', seriesName);
+        result = replaceAll(result, '%s.n', seriesName.replace(/ /g, '.'));
+        result = replaceAll(result, '%s_n', seriesName.replace(/ /g, '_'));
+        result = replaceAll(result, '%s', season);
+        result = replaceAll(result, '%0s', padNumber(season, 2));
+        result = replaceAll(result, '%00s', padNumber(season, 3));
+        result = replaceAll(result, '%ext', extension);
+        result = replaceAll(result, '%en', '%#1');
+        result = replaceAll(result, '%e.n', '%#2');
+        result = replaceAll(result, '%e_n', '%#3');
+        result = replaceAll(result, '%fn', fileName);
+
+        if (endingEpisode != null) {
+            result = replaceAll(result, '%ed', endingEpisode);
+            result = replaceAll(result, '%0ed', padNumber(endingEpisode, 2));
+            result = replaceAll(result, '%00ed', padNumber(endingEpisode, 3));
+        }
+
+        result = replaceAll(result, '%e', episode);
+        result = replaceAll(result, '%0e', padNumber(episode, 2));
+        result = replaceAll(result, '%00e', padNumber(episode, 3));
+
+        result = replaceAll(result, '%#1', '{episode title}');
+        result = replaceAll(result, '%#2', '{episode.title}');
+        return replaceAll(result, '%#3', '{episode_title}').trim();
+    }
+
+    function getTargetPreview(context) {
+
+        var season = parseInt(context.querySelector('#txtSeason').value, 10);
+        var episode = parseInt(context.querySelector('#txtEpisode').value, 10);
+        var endingEpisode = parseInt(context.querySelector('#txtEndingEpisode').value, 10);
+
+        if (isNaN(season) || isNaN(episode)) {
+            return 'Enter a season and episode number.';
+        }
+
+        var select = context.querySelector('#selectMedias');
+        var seriesPath;
+        var seriesName;
+
+        if (select.value == '##NEW##' && currentNewItem) {
+            seriesName = currentNewItem.Name;
+            var rootFolder = context.querySelector('#selectMediaFolder').value || '{root folder}';
+            seriesPath = rootFolder + (rootFolder.indexOf('\\') !== -1 ? '\\' : '/') + getSeriesFolderName(seriesName, currentNewItem.ProductionYear);
+        } else if (select.value && mediaPaths[select.value]) {
+            seriesName = select.options[select.selectedIndex].text;
+            seriesPath = mediaPaths[select.value];
+        } else {
+            return 'Select a series.';
+        }
+
+        var separator = seriesPath.indexOf('\\') !== -1 ? '\\' : '/';
+
+        return seriesPath + separator + getSeasonFolderName(season) + separator +
+            getEpisodeFileName(seriesName, season, episode, isNaN(endingEpisode) ? null : endingEpisode, currentItem.OriginalFileName);
+    }
+
+    function updateTargetPreview(context) {
+
+        var fld = context.querySelector('.fldTargetPreview');
+
+        if (chosenType !== 'Series' || !tvOptions || !currentItem) {
+            fld.classList.add('hide');
+            return;
+        }
+
+        fld.classList.remove('hide');
+        context.querySelector('.targetPreview').textContent = getTargetPreview(context);
     }
 
     // Only files with an episode number but no season ("[ASW] Anime 13") can seed an absolute episode rule
@@ -306,6 +448,7 @@
                     mediasHtml = mediasHtml + '<option selected value="##NEW##">' + currentNewItem.Name + '</option>';
                     dlg.querySelector('#selectMedias').innerHTML = mediasHtml;
                     selectedMediasChanged(dlg);
+                    updateTargetPreview(dlg);
                 }
             });
         });
@@ -370,6 +513,9 @@
                 extractedName = null;
                 extractedYear = null;
                 currentNewItem = null;
+                currentItem = item;
+                tvOptions = null;
+                mediaPaths = {};
                 existingMediasHtml = null;
 
                 var xhr = new XMLHttpRequest();
@@ -424,6 +570,13 @@
                     dlg.querySelector('#selectMedias').addEventListener('change', function (e) {
 
                         selectedMediasChanged(dlg);
+                        updateTargetPreview(dlg);
+                    });
+
+                    ['#txtSeason', '#txtEpisode', '#txtEndingEpisode', '#selectMediaFolder'].forEach(function (selector) {
+                        dlg.querySelector(selector).addEventListener(selector === '#selectMediaFolder' ? 'change' : 'input', function () {
+                            updateTargetPreview(dlg);
+                        });
                     });
 
                     dlg.querySelector('#selectMediaType').addEventListener('change', function (e) {

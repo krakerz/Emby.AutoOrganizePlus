@@ -46,6 +46,11 @@
                         <input is="emby-input" id="txtEndingEpisode" type="number" pattern="[0-9]*" min="0" label="Ending episode number:" />
                         <div class="fieldDescription">Only required for multi-episode files.</div>
                     </div>
+                    <div class="fldTargetPreview hide inputContainer">
+                        <div class="fieldDescription">Preview:</div>
+                        <div class="targetPreview" style="word-break: break-all;"></div>
+                        <div class="fieldDescription">From the TV settings. Existing season folders in the library are reused, and the episode title is filled in from the metadata provider when organizing.</div>
+                    </div>
                     <div class="fldRemember hide checkboxContainer checkboxContainer-withDescription">
                         <label>
                             <input is="emby-checkbox" id="chkRememberCorrection" type="checkbox" />
