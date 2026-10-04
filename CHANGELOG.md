@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-10-04
+
+### Changed
+- Smart Matches and Absolute Episode Rules are collapsible sections, collapsed by default
+
+### Fixed
+- Smart match delete button shows a trash icon instead of a blank white box
+- Absolute episode rule dialog shows the file names label and a styled Add range button
+
 ## [1.1.0] — 2026-10-04
 
 ### Added
