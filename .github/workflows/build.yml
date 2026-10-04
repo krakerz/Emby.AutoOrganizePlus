@@ -1,0 +1,72 @@
+name: Build
+on:
+  push:
+    branches: [main]
+    paths-ignore: [README.md, CHANGELOG.md, LICENSE, INSTALL.txt, .gitignore]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # No packages.lock.json, so setup-dotnet's built-in cache can't key on it
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # AssemblyVersion 1.2.3.0 -> 1.2.3
+      - name: Resolve version
+        id: version
+        run: |
+          v=$(sed -n 's|.*<AssemblyVersion>\([0-9]*\.[0-9]*\.[0-9]*\)\.[0-9]*</AssemblyVersion>.*|\1|p' Emby.AutoOrganize/Emby.AutoOrganize.csproj)
+          test -n "$v" || { echo "no AssemblyVersion in csproj"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog section
+        run: |
+          scripts/release-notes.sh "${{ steps.version.outputs.version }}" > release-notes.md
+          if ! test -s release-notes.md; then
+            prev=$(git describe --tags --abbrev=0 2>/dev/null || true)
+            {
+              echo "_No CHANGELOG.md section for this version; commit history since ${prev:-the first commit}:_"
+              echo ""
+              git log --pretty='- %s' ${prev:+$prev..}HEAD
+            } > release-notes.md
+          fi
+          {
+            echo ""
+            echo "---"
+            echo "[Full changelog](${{ github.server_url }}/${{ github.repository }}/blob/main/CHANGELOG.md)"
+          } >> release-notes.md
+
+      - name: Build
+        run: dotnet build Emby.AutoOrganize.sln -c Release
+
+      # Emby already ships SQLitePCL, so the plugin DLL is the whole install
+      - name: Package
+        run: |
+          dir=Emby.AutoOrganizePlus
+          mkdir -p "dist/$dir"
+          cp Emby.AutoOrganize/bin/Release/netstandard2.0/Emby.AutoOrganizePlus.dll "dist/$dir/"
+          cp INSTALL.txt "dist/$dir/"
+          (cd dist && zip -r "../Emby.AutoOrganizePlus-v${{ steps.version.outputs.version }}.zip" "$dir")
+
+      - name: Draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          body_path: release-notes.md
+          files: Emby.AutoOrganizePlus-v${{ steps.version.outputs.version }}.zip

@@ -1,0 +1,29 @@
+Auto Organize+ for Emby Server
+
+Installation
+
+Auto Organize+ is a single file: Emby.AutoOrganizePlus.dll
+
+1. Stop Emby Server.
+
+2. Copy Emby.AutoOrganizePlus.dll (next to this file) to your Emby plugins folder:
+
+   Linux package:    /var/lib/emby/plugins
+   Docker:           /config/plugins
+   Windows:          %AppData%\Emby-Server\programdata\plugins
+
+3. Start Emby Server
+
+4. Open Auto Organize+ from the Emby dashboard main menu
+
+Settings will be created automatically. If you previously used the stock
+Auto Organize plugin, settings are copied once on first start.
+
+WARNING: If you have the stock Auto Organize plugin installed, do not enable
+organizing for the same watch folders in both plugins. Disable one or the
+other for each folder to avoid conflicts.
+
+No configuration files need to be created - all settings are managed through
+the Emby dashboard.
+
+Project page: https://github.com/krakerz/Emby.AutoOrganizePlus

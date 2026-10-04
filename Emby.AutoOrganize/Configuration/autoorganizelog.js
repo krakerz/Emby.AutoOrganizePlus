@@ -1,0 +1,584 @@
+﻿define(['ListPage', 'layoutManager', 'itemManager', 'BaseItemController', 'globalize', 'connectionManager', 'datetime', 'pluginManager', 'loading', 'formHelper', 'mainTabsManager', 'taskButton', 'events', 'serverNotifications'], function (ListPage, layoutManager, itemManager, BaseItemController, globalize, connectionManager, datetime, pluginManager, loading, formHelper, mainTabsManager, TaskButton, events, serverNotifications) {
+    'use strict';
+
+    function getFileOrganizationResults(apiClient, options) {
+
+        var url = apiClient.getUrl("Library/AutoOrganizePlus/FileOrganization", options || {});
+
+        var serverId = apiClient.serverId();
+
+        return apiClient.getJSON(url).then(function (result) {
+
+            var items = result.Items;
+            for (var i = 0, length = items.length; i < length; i++) {
+                items[i].ServerId = serverId;
+            }
+
+            return result;
+        });
+    };
+
+    function onApiCommandCompleted(response) {
+
+        var obj = this;
+        var instance = obj.instance;
+        var eventName = obj.eventName;
+
+        events.trigger(instance, 'message', [{
+
+            MessageType: eventName,
+            Data: {
+                IsLocalEvent: true
+            }
+
+        }]);
+
+        return response;
+    }
+
+    function deleteOriginalFileFromOrganizationResult(apiClient, id) {
+
+        var url = apiClient.getUrl("Library/AutoOrganizePlus/FileOrganizations/" + id + "/File");
+
+        return apiClient.ajax({
+            type: "DELETE",
+            url: url
+
+        }).then(onApiCommandCompleted.bind({
+            instance: apiClient,
+            eventName: 'AutoOrganizePlus_ItemRemoved'
+        }));
+    }
+
+    function clearOrganizationLog(apiClient) {
+
+        var url = apiClient.getUrl("Library/AutoOrganizePlus/FileOrganizations");
+
+        return apiClient.ajax({
+            type: "DELETE",
+            url: url
+        }).then(onApiCommandCompleted.bind({
+            instance: apiClient,
+            eventName: 'AutoOrganizePlus_LogReset'
+        }));
+    }
+
+    function performOrganization(apiClient, id) {
+
+        var url = apiClient.getUrl("Library/AutoOrganizePlus/FileOrganizations/" + id + "/Organize");
+
+        return apiClient.ajax({
+            type: "POST",
+            url: url
+        }).then(onApiCommandCompleted.bind({
+            instance: apiClient,
+            eventName: 'AutoOrganizePlus_ItemUpdated'
+        }));
+    }
+
+    function AutoOrganizePlusEntryController() {
+
+        BaseItemController.apply(this, arguments);
+    }
+
+    Object.assign(AutoOrganizePlusEntryController.prototype, BaseItemController.prototype);
+
+    AutoOrganizePlusEntryController.prototype.getTypeNames = function () {
+        return ['AutoOrganizePlusEntry'];
+    };
+
+    AutoOrganizePlusEntryController.prototype.getDisplayName = function (item, options) {
+        return item.OriginalPath;
+    };
+
+    AutoOrganizePlusEntryController.prototype.isSingleItemFetchRequired = function (typeName) {
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.getDefaultIcon = function (item) {
+
+        return '&#xe873;';
+    };
+
+    AutoOrganizePlusEntryController.prototype.canDelete = function (item, user) {
+
+        return item.Status !== 'Success';
+    };
+
+    AutoOrganizePlusEntryController.prototype.enableLibraryItemDeleteConfirmation = function () {
+
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.canRate = function (item) {
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.canMarkPlayed = function (item) {
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.canAddToPlaylist = function (item) {
+
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.canAddToCollection = function (item, user) {
+
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.canConvert = function (item, user) {
+
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.canEdit = function (items, user) {
+
+        if (items.length === 1) {
+            return items[0].Status !== 'Success';
+        }
+
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.canEditImages = function (item, user) {
+
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.canEditSubtitles = function (item, user) {
+
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.getEditCommand = function (items) {
+
+        let cmd = BaseItemController.prototype.getEditCommand.apply(this, arguments);
+
+        cmd.name = globalize.translate('Organize');
+        cmd.icon = 'drive_file_move';
+        cmd.primaryCommand = true
+
+        return cmd;
+    };
+    AutoOrganizePlusEntryController.prototype.isDeletePrimaryCommand = function (itemType) {
+
+        return true;
+    };
+
+    AutoOrganizePlusEntryController.prototype.getNameSortOption = function (itemType) {
+
+        return null;
+    };
+
+    AutoOrganizePlusEntryController.prototype.getDeleteMessages = function () {
+
+        return {
+            single: {
+                text: 'Delete file?',
+                title: 'Delete Auto Organize Entry',
+                confirmText: globalize.translate('Delete')
+            },
+            plural: {
+                text: 'Delete files?',
+                title: 'Delete Auto Organize Entry',
+                confirmText: globalize.translate('Delete')
+            }
+        };
+    };
+
+    AutoOrganizePlusEntryController.prototype.canRefreshMetadata = function (item, user) {
+
+        return false;
+    };
+
+    AutoOrganizePlusEntryController.prototype.getAvailableFields = function (options) {
+
+        let fields = BaseItemController.prototype.getAvailableFields.apply(this, arguments);
+
+        fields = [];
+
+        fields.push({
+            id: 'Name',
+            name: globalize.translate('Path'),
+            size: 80,
+            sortBy: null,
+            viewTypes: 'datagrid'
+        });
+
+        fields.push({
+            id: 'OriginalFileName',
+            name: globalize.translate('FileName'),
+            size: 40,
+            sortBy: null,
+            defaultVisible: '*'
+        });
+
+        fields.push({
+            id: 'TargetPath',
+            name: globalize.translate('Target Path'),
+            size: 80,
+            sortBy: null,
+            defaultVisible: 'datagrid'
+        });
+
+        fields.push({
+            id: 'DateOrganized',
+            name: globalize.translate('Date'),
+            size: 20,
+            sortBy: null,
+            defaultVisible: 'datagrid'
+        });
+
+        fields.push({
+            id: 'StatusDisplay',
+            name: globalize.translate('Status'),
+            size: 12,
+            sortBy: null,
+            viewTypes: 'datagrid',
+            defaultVisible: 'datagrid'
+        });
+
+        fields.push({
+            id: 'StatusMessage',
+            name: globalize.translate('Status Message'),
+            size: 80,
+            sortBy: null,
+            viewTypes: 'datagrid',
+            defaultVisible: 'datagrid'
+        });
+
+        return fields;
+    };
+
+    AutoOrganizePlusEntryController.prototype.getCommands = function (options) {
+        let commands = BaseItemController.prototype.getCommands.apply(this, arguments);
+
+        let items = options.items;
+
+        if (items.length === 1) {
+
+            if (items[0].Status !== 'Success') {
+                commands.push({
+                    name: globalize.translate('View Error Information'),
+                    id: 'viewerrorinfo',
+                    icon: 'error'
+                });
+            }
+        }
+
+        return commands;
+    };
+
+    function showErrorInfoForEntry(item) {
+
+        require(['alert']).then(function (responses) {
+
+            return responses[0]({
+
+                title: item.OriginalFileName,
+                text: item.StatusMessage
+
+            });
+        });
+        return Promise.resolve();
+    }
+
+    AutoOrganizePlusEntryController.prototype.executeCommand = function (command, items, options) {
+
+        switch (command) {
+
+            case 'viewerrorinfo':
+                return showErrorInfoForEntry(items[0]);
+            default:
+                return BaseItemController.prototype.executeCommand.apply(this, arguments);
+        }
+    };
+
+    AutoOrganizePlusEntryController.prototype.deleteItemsInternal = function (options) {
+
+        var apiClient = connectionManager.getApiClient(options.items[0]);
+        let promises = options.items.map(function (item) {
+            return deleteOriginalFileFromOrganizationResult(apiClient, item.Id);
+        });
+
+        return Promise.all(promises);
+    };
+
+    AutoOrganizePlusEntryController.prototype.editItems = function (items, options) {
+
+        var item = items[0];
+
+        if (item.Status === 'Success') {
+            return Promise.resolve();
+        }
+
+        if (!item.TargetPath) {
+            return require([pluginManager.getConfigurationResourceUrl('AutoOrganizePlusFileOrganizerJs')]).then(function (responses) {
+
+                return responses[0].show(item);
+            });
+        }
+
+        var message = 'The following file will be moved from:' + '<br/><br/>' + item.OriginalPath + '<br/><br/>' + 'To:' + '<br/><br/>' + item.TargetPath;
+
+        if (item.DuplicatePaths.length) {
+            message += '<br/><br/>' + 'The following duplicates will be deleted:';
+
+            message += '<br/><br/>' + item.DuplicatePaths.join('<br/>');
+        }
+
+        message += '<br/><br/>' + 'Are you sure you wish to proceed?';
+
+        return require(['confirm']).then(function (responses) {
+
+            return responses[0](message, 'Organize File').then(function () {
+
+                loading.show();
+
+                return performOrganization(ApiClient, item.Id).then(function () {
+
+                    loading.hide();
+
+                }, formHelper.handleErrorResponse);
+            });
+        });
+    };
+
+    function getStatusDisplay(item) {
+
+        var status = item.Status;
+        let classes = [];
+        let styles = [];
+
+        if (status === 'SkippedExisting') {
+            status = 'Skipped';
+        }
+        else if (status === 'Failure') {
+            status = 'Failed';
+            styles.push('color:red');
+        }
+        if (status === 'Success') {
+            status = 'Success';
+            classes.push('color-accent');
+        }
+
+        return '<span class="' + classes.join(' ') + '" style="' + styles.join(';') + '">' + status + '</span>';
+    }
+
+    AutoOrganizePlusEntryController.prototype.resolveField = function (item, field) {
+
+        switch (field) {
+
+            case 'ListViewTargetPath':
+                return item.TargetPath ? ('<i class="md-icon autortl" style="font-size:150%;margin-inline-end:.5em;">arrow_forward</i>' + item.TargetPath) : null;
+            case 'StatusDisplay':
+                return getStatusDisplay(item);
+            case 'DateOrganized':
+                {
+                    let val = item.Date;
+                    return val ? datetime.toLocaleString(new Date(Date.parse(val))) : null;
+                }
+            case 'ListViewStatusMessage':
+                return getStatusDisplay(item) + (item.StatusMessage ? (': ' + item.StatusMessage) : '');
+            default:
+                return BaseItemController.prototype.resolveField.apply(this, arguments);
+        }
+    };
+
+    itemManager.registerItemController(new AutoOrganizePlusEntryController());
+
+    function getTabs() {
+        return [
+            {
+                href: pluginManager.getConfigurationPageUrl('AutoOrganizePlusLog'),
+                name: 'Activity Log'
+            },
+            {
+                href: pluginManager.getConfigurationPageUrl('AutoOrganizePlusTv'),
+                name: 'TV'
+            },
+            {
+                href: pluginManager.getConfigurationPageUrl('AutoOrganizePlusMovie'),
+                name: 'Movie'
+            },
+            {
+                href: pluginManager.getConfigurationPageUrl('AutoOrganizePlusSmart'),
+                name: 'Smart Matches'
+            }];
+    }
+
+    function onServerEvent(e, apiClient, data) {
+
+        var isLocalEvent = data && data.IsLocalEvent;
+
+        this.itemsContainer.notifyRefreshNeeded(isLocalEvent);
+    }
+
+    function clearEntries(e) {
+
+        let instance = this;
+        clearOrganizationLog(instance.getApiClient()).catch(formHelper.handleErrorResponse);
+    }
+
+    function AutoOrganizeView(view, params) {
+
+        this.enableAlphaNumericShortcuts = false;
+
+        ListPage.apply(this, arguments);
+
+        view.querySelector('.btnClearLog').addEventListener('click', clearEntries.bind(this));
+
+        this.boundOnServerEvent = onServerEvent.bind(this);
+
+        var instance = this;
+
+        this.taskButton = new TaskButton({
+            panel: view.querySelector('.btnOrganize'),
+            progressElem: view.querySelector('.organizeProgress'),
+            taskKey: 'AutoOrganizePlus',
+            button: view.querySelector('.btnOrganize'),
+            onStatusChange: function () {
+                instance.itemsContainer.notifyRefreshNeeded(true);
+            }
+        });
+    }
+
+    Object.assign(AutoOrganizeView.prototype, ListPage.prototype);
+
+    AutoOrganizeView.prototype.onResume = function (options) {
+
+        ListPage.prototype.onResume.apply(this, arguments);
+
+        var view = this.view;
+
+        mainTabsManager.setTabs(view, 0, getTabs);
+
+        events.on(serverNotifications, 'AutoOrganizePlus_LogReset', this.boundOnServerEvent);
+        events.on(serverNotifications, 'AutoOrganizePlus_ItemUpdated', this.boundOnServerEvent);
+        events.on(serverNotifications, 'AutoOrganizePlus_ItemRemoved', this.boundOnServerEvent);
+        events.on(serverNotifications, 'AutoOrganizePlus_ItemAdded', this.boundOnServerEvent);
+
+        if (this.taskButton) {
+            this.taskButton.resume({});
+        }
+    };
+
+    AutoOrganizeView.prototype.onPause = function () {
+
+        ListPage.prototype.onPause.apply(this, arguments);
+
+        var view = this.view;
+
+        events.off(serverNotifications, 'AutoOrganizePlus_LogReset', this.boundOnServerEvent);
+        events.off(serverNotifications, 'AutoOrganizePlus_ItemUpdated', this.boundOnServerEvent);
+        events.off(serverNotifications, 'AutoOrganizePlus_ItemRemoved', this.boundOnServerEvent);
+        events.off(serverNotifications, 'AutoOrganizePlus_ItemAdded', this.boundOnServerEvent);
+
+        if (this.taskButton) {
+            this.taskButton.pause();
+        }
+    };
+
+    AutoOrganizeView.prototype.destroy = function () {
+
+        ListPage.prototype.destroy.apply(this, arguments);
+
+        if (this.taskButton) {
+            this.taskButton.destroy();
+            this.taskButton = null;
+        }
+    };
+
+    AutoOrganizeView.prototype.supportsAlphaPicker = function () {
+
+        return false;
+    };
+
+    AutoOrganizeView.prototype.getItemTypes = function () {
+
+        return ['AutoOrganizePlusEntry'];
+    };
+
+    AutoOrganizeView.prototype.getEmptyListMessage = function () {
+
+        return Promise.resolve('');
+    };
+
+    AutoOrganizeView.prototype.setTitle = function () {
+
+        // handled by appheader
+    };
+
+    AutoOrganizeView.prototype.getItem = function () {
+
+        return Promise.resolve(null);
+    };
+
+    AutoOrganizeView.prototype.getItems = function (query) {
+
+        return getFileOrganizationResults(this.getApiClient(), query);
+    };
+
+    AutoOrganizeView.prototype.getNameSortOption = function (itemType) {
+
+        return null;
+    };
+
+    AutoOrganizeView.prototype.getSettingsKey = function () {
+
+        return 'autoorganizelog';
+    };
+
+    AutoOrganizeView.prototype.supportsViewType = function (viewType) {
+
+        switch (viewType) {
+
+            case 'datagrid':
+            case 'list':
+                return true;
+            default:
+                return false;
+        }
+    };
+
+    AutoOrganizeView.prototype.getBaseListRendererOptions = function () {
+
+        let options = ListPage.prototype.getBaseListRendererOptions.apply(this, arguments);
+
+        options.draggable = false;
+        options.draggableXActions = true;
+
+        options.action = layoutManager.tv ? 'none' : 'edit';
+
+        options.textLinks = false;
+
+        return options;
+    };
+
+    AutoOrganizeView.prototype.getListViewOptions = function (items, settings) {
+
+        let options = ListPage.prototype.getListViewOptions.apply(this, arguments);
+
+        options.fields.push('ListViewTargetPath');
+        options.fields.push('DateOrganized');
+        options.fields.push('ListViewStatusMessage');
+
+        options.roundImage = true;
+        options.imageSize = 'smaller';
+
+        return options;
+    };
+
+    AutoOrganizeView.prototype.getViewSettingDefaults = function () {
+
+        let viewSettings = ListPage.prototype.getViewSettingDefaults.apply(this, arguments);
+
+        viewSettings.imageType = 'list';
+
+        return viewSettings;
+    };
+
+    return AutoOrganizeView;
+});
