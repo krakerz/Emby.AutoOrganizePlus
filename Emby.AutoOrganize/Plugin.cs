@@ -45,7 +45,11 @@ namespace Emby.AutoOrganizePlus
                 {
                     Name = "AutoOrganizePlusLog",
                     EmbeddedResourcePath = GetType().Namespace + ".Configuration.autoorganizelog.html",
-                    EnableInMainMenu = true
+                    EnableInMainMenu = true,
+                    IsMainConfigPage = true,
+                    DisplayName = "Auto Organize+",
+                    MenuSection = "server",
+                    MenuIcon = "folder_open"
                 },
                 new PluginPageInfo
                 {
