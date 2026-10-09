@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-10-09
+
+### Added
+- Auto Organize+ menu entry has a name, icon and server menu section, and opens from the plugin's settings link
+
 ## [1.2.0] — 2026-10-04
 
 ### Changed
